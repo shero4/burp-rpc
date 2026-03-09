@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package burp.montoya.bridge;
+
+option java_package = "burp.montoya.bridge.proto";
+option java_multiple_files = true;
+
+// HTTP service (host, port, secure)
+message HttpService {
+  string host = 1;
+  int32 port = 2;
+  bool secure = 3;
+}
+
+// Annotations (notes, highlight color)
+message Annotations {
+  string notes = 1;
+  string highlight_color = 2;  // e.g. "RED", "ORANGE", "YELLOW", "GREEN", "CYAN", "BLUE", "PINK", "MAGENTA", "GRAY"
+}
+
+// HTTP request - raw bytes as base64 for binary safety
+message HttpRequestMessage {
+  HttpService http_service = 1;
+  string raw_bytes_base64 = 2;  // Full HTTP request as base64
+}
+
+// HTTP response - raw bytes as base64
+message HttpResponseMessage {
+  string raw_bytes_base64 = 1;  // Full HTTP response as base64
+}
+
+// Proxy history entry (ProxyHttpRequestResponse)
+message ProxyHistoryEntry {
+  int32 id = 1;
+  HttpRequestMessage request = 2;
+  HttpResponseMessage response = 3;   // Optional - may be absent if no response yet
+  bool has_response = 4;
+  Annotations annotations = 5;
+  string time_iso = 6;         // ZonedDateTime as ISO-8601 string
+  int32 listener_port = 7;
+  bool edited = 8;
+}
+
+// Site map / HTTP request-response pair (HttpRequestResponse from sitemap)
+message SiteMapEntry {
+  HttpRequestMessage request = 1;
+  HttpResponseMessage response = 2;   // Optional
+  bool has_response = 3;
+  Annotations annotations = 4;
+}
+
+// Request for GetProxyHistory
+message GetProxyHistoryRequest {
+  // Empty for now - could add filter later
+}
+
+// Response for GetProxyHistory
+message GetProxyHistoryResponse {
+  repeated ProxyHistoryEntry entries = 1;
+}
+
+// Request for SendHttpRequest
+message SendHttpRequestRequest {
+  HttpRequestMessage request = 1;
+}
+
+// Response for SendHttpRequest
+message SendHttpRequestResponse {
+  HttpRequestMessage request = 1;  // Echo of sent request
+  HttpResponseMessage response = 2;  // Response received
+  bool has_response = 3;
+}
+
+// Request for GetSiteMap
+message GetSiteMapRequest {
+  // Empty for now - could add filter later
+}
+
+// Response for GetSiteMap
+message GetSiteMapResponse {
+  repeated SiteMapEntry entries = 1;
+}
+
+// BurpConnector gRPC service
+service BurpConnector {
+  rpc GetProxyHistory(GetProxyHistoryRequest) returns (GetProxyHistoryResponse);
+  rpc SendHttpRequest(SendHttpRequestRequest) returns (SendHttpRequestResponse);
+  rpc GetSiteMap(GetSiteMapRequest) returns (GetSiteMapResponse);
+}

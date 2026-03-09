@@ -1,0 +1,24 @@
+Burp Montoya API to TypeScript Bridge
+Objective: Create a Burp Suite Extension using the Montoya API that acts as a gRPC server, allowing a TypeScript SDK to control Burp and fetch data logically.
+Phase 1: Java Extension (The Server)
+Initialize a Gradle project for a Burp Extension.
+Add the montoya-api dependency and grpc-java dependencies.
+Create a BurpExtension entry point. In the initialize(MontoyaApi api) method, start a gRPC server on localhost:50051.
+Implement a gRPC service that exposes the following Montoya functionalities:
+Proxy: Method to fetch all proxy().history().
+HTTP: Method to send a request via http().sendRequest().
+SiteMap: Method to retrieve siteMap().items().
+Ensure all Burp objects (Requests, Responses, Annotations) are serialized into Protobuf messages.
+Phase 2: Protocol Buffers (.proto)
+Define a montoya_bridge.proto file.
+Create messages for HttpRequest, HttpResponse, and LogEntry.
+Define a service BurpConnector with RPC calls like GetProxyHistory, SendHttpRequest, and GetSiteMap.
+Phase 3: TypeScript SDK (The Client)
+Create a /sdk folder with a package.json and TypeScript configuration.
+Use ts-proto to generate TypeScript interfaces and a client from the .proto file.
+Create a BurpClient class that wraps the gRPC client, providing a clean, "logical" API for a user (e.g., await sdk.proxy.getHistory()).
+Requirements:
+Handle Byte[] to String/Base64 conversion for HTTP bodies.
+Include a README.md explaining how to build the .jar (using ./gradlew shadowJar) and how to install the SDK.
+Ensure the Java server is asynchronous to prevent Burp UI freezes.
+

@@ -1,0 +1,32 @@
+# Java / Gradle
+build/
+.gradle/
+*.class
+*.jar
+*.war
+
+# Gradle wrapper (keep gradlew + properties, ignore cached dist)
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# Node / TypeScript SDK
+sdk/node_modules/
+sdk/dist/
+sdk/package-lock.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+*.swp
+*~
