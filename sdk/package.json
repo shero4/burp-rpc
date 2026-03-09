@@ -1,11 +1,47 @@
 {
-  "name": "@burp-rpc/sdk",
+  "name": "burp-rpc",
   "version": "1.0.0",
-  "description": "TypeScript SDK for Burp RPC - control Burp Suite via gRPC",
+  "description": "Control Burp Suite programmatically from Node.js over gRPC — proxy history, repeater, site map, and more.",
+  "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "proto",
+    "README.md"
+  ],
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "prepublishOnly": "pnpm run build"
+  },
+  "keywords": [
+    "burp",
+    "burp-suite",
+    "burpsuite",
+    "grpc",
+    "rpc",
+    "security",
+    "pentesting",
+    "pentest",
+    "repeater",
+    "proxy",
+    "web-security",
+    "montoya"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shero4/burp-rpc.git",
+    "directory": "sdk"
+  },
+  "homepage": "https://github.com/shero4/burp-rpc#readme",
+  "bugs": {
+    "url": "https://github.com/shero4/burp-rpc/issues"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.9.14",

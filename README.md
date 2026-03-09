@@ -45,8 +45,12 @@ Burp RPC: gRPC server started on 0.0.0.0:50051
 
 ```bash
 cd sdk
-npm install
-npm run build
+
+# npm
+npm install && npm run build
+
+# pnpm
+pnpm install && pnpm run build
 ```
 
 ### 4. Run the example
@@ -72,7 +76,7 @@ BURP_RPC_HOST=localhost BURP_RPC_PORT=9090 node test.js
 ## SDK API
 
 ```javascript
-const { BurpClient, decodeBase64Body } = require("@burp-rpc/sdk");
+const { BurpClient, decodeBase64Body } = require("burp-rpc");
 
 const burp = new BurpClient({ host: "localhost", port: 50051 });
 

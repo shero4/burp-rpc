@@ -1,5 +1,17 @@
-export { BurpClient, decodeBase64Body, encodeBase64Body } from "./client";
-export type { BurpClientOptions } from "./client";
+export {
+  BurpClient,
+  decodeBase64Body,
+  encodeBase64Body,
+} from "./client";
+
+export type {
+  BurpClientOptions,
+  BurpProxy,
+  BurpHttp,
+  BurpRepeater,
+  BurpSiteMap,
+} from "./client";
+
 export type {
   HttpService,
   Annotations,
