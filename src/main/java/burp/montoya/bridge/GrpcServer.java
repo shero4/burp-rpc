@@ -2,10 +2,11 @@ package burp.montoya.bridge;
 
 import burp.api.montoya.MontoyaApi;
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
+import io.grpc.netty.shaded.io.netty.channel.ChannelOption;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -23,7 +24,8 @@ public class GrpcServer {
     }
 
     public void start() throws IOException {
-        server = NettyServerBuilder.forPort(port)
+        server = NettyServerBuilder.forAddress(new InetSocketAddress("0.0.0.0", port))
+                .withChildOption(ChannelOption.SO_REUSEADDR, true)
                 .addService(new BurpConnectorServiceImpl(api))
                 .build()
                 .start();
