@@ -57,3 +57,10 @@ export interface GetSiteMapRequest {}
 export interface GetSiteMapResponse {
   entries: SiteMapEntry[];
 }
+
+export interface SendToRepeaterRequest {
+  request: HttpRequestMessage | undefined;
+  tabName: string;
+}
+
+export interface SendToRepeaterResponse {}

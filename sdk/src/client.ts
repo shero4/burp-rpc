@@ -10,6 +10,7 @@ import type {
   GetProxyHistoryResponse,
   SendHttpRequestResponse,
   GetSiteMapResponse,
+  SendToRepeaterResponse,
 } from "./types";
 
 const PROTO_PATH = path.resolve(__dirname, "..", "proto", "montoya_bridge.proto");
@@ -50,6 +51,11 @@ export class BurpClient {
           resolve(res.entries ?? []);
         });
       });
+    },
+
+    getLastN: async (n: number): Promise<ProxyHistoryEntry[]> => {
+      const entries = await this.proxy.getHistory();
+      return entries.slice(-n);
     },
   };
 
@@ -94,6 +100,33 @@ export class BurpClient {
           resolve(res.entries ?? []);
         });
       });
+    },
+  };
+
+  readonly repeater = {
+    sendToRepeater: (
+      request: HttpRequestMessage,
+      tabName?: string
+    ): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        this.client.sendToRepeater(
+          { request, tabName: tabName ?? "" },
+          (err: grpc.ServiceError | null, _res: SendToRepeaterResponse) => {
+            if (err) return reject(err);
+            resolve();
+          }
+        );
+      });
+    },
+
+    sendFromHistory: (
+      entry: ProxyHistoryEntry,
+      tabName?: string
+    ): Promise<void> => {
+      if (!entry.request) {
+        return Promise.reject(new Error("Proxy history entry has no request"));
+      }
+      return this.repeater.sendToRepeater(entry.request, tabName);
     },
   };
 

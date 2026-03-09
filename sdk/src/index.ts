@@ -13,4 +13,6 @@ export type {
   SendHttpRequestResponse,
   GetSiteMapRequest,
   GetSiteMapResponse,
+  SendToRepeaterRequest,
+  SendToRepeaterResponse,
 } from "./types";

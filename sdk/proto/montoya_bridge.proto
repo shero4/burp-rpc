@@ -81,9 +81,21 @@ message GetSiteMapResponse {
   repeated SiteMapEntry entries = 1;
 }
 
+// Request for SendToRepeater
+message SendToRepeaterRequest {
+  HttpRequestMessage request = 1;
+  string tab_name = 2;  // Optional tab caption in Repeater UI
+}
+
+// Response for SendToRepeater
+message SendToRepeaterResponse {
+  // Empty - confirms the request was sent to Repeater
+}
+
 // BurpConnector gRPC service
 service BurpConnector {
   rpc GetProxyHistory(GetProxyHistoryRequest) returns (GetProxyHistoryResponse);
   rpc SendHttpRequest(SendHttpRequestRequest) returns (SendHttpRequestResponse);
   rpc GetSiteMap(GetSiteMapRequest) returns (GetSiteMapResponse);
+  rpc SendToRepeater(SendToRepeaterRequest) returns (SendToRepeaterResponse);
 }
