@@ -4,6 +4,8 @@ Control [Burp Suite](https://portswigger.net/burp) programmatically from Node.js
 
 `burp-rpc` is a Burp Suite extension that exposes the [Montoya API](https://portswigger.github.io/burp-extensions-montoya-api/javadoc/burp/api/montoya/MontoyaApi.html) as a gRPC service, paired with a TypeScript/JavaScript SDK. Read proxy history, send requests through Burp, query the site map, and push requests to Repeater — all from your terminal or scripts.
 
+**npm:** [burp-rpc](https://www.npmjs.com/package/burp-rpc)
+
 ```
 ┌────────────┐   gRPC (0.0.0.0:50051)   ┌──────────────────┐
 │ Burp Suite │◄──────────────────────────│  Node.js / SDK   │
@@ -72,6 +74,26 @@ BURP_RPC_HOST=localhost BURP_RPC_PORT=9090 node test.js
 |---|---|---|
 | `BURP_RPC_HOST` | `localhost` | Host where the Burp extension is running |
 | `BURP_RPC_PORT` | `50051` | gRPC port |
+
+### Using the published npm package
+
+```bash
+# Install from npm
+npm install burp-rpc
+# or
+pnpm add burp-rpc
+```
+
+Then run the example in the `examples/` folder:
+
+```bash
+cd examples
+npm install && npm run test
+# or
+pnpm install && pnpm test
+```
+
+See [examples/README.md](examples/README.md) for full docs.
 
 ## SDK API
 
@@ -192,7 +214,11 @@ burp-rpc/
 │   ├── src/                             # TypeScript source
 │   ├── dist/                            # Compiled JavaScript
 │   ├── proto/                           # Proto file (copy)
-│   └── test.js                          # Example script
+│   └── test.js                          # Local dev test script
+├── examples/                            # Example using npm package
+│   ├── package.json                     # Depends on burp-rpc
+│   ├── test.js                          # Test script
+│   └── README.md                        # Usage docs
 ├── build.gradle.kts                     # Gradle build config
 └── .github/workflows/release.yml        # CI/CD
 ```

@@ -1,6 +1,6 @@
 {
   "name": "burp-rpc",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Control Burp Suite programmatically from Node.js over gRPC — proxy history, repeater, site map, and more.",
   "license": "MIT",
   "main": "dist/index.js",
@@ -8,7 +8,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "require": "./dist/index.js"
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "files": [

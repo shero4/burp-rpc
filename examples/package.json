@@ -1,0 +1,14 @@
+{
+  "name": "burp-rpc-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Example usage of the burp-rpc npm package",
+  "type": "module",
+  "scripts": {
+    "test": "node test.js",
+    "start": "node test.js"
+  },
+  "dependencies": {
+    "burp-rpc": "^1.0.0"
+  }
+}
