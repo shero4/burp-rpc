@@ -181,8 +181,8 @@ export interface BurpClientOptions {
 
   /**
    * Default deadline for all gRPC calls, in milliseconds.
-   * Individual methods can override this. `0` means no deadline (infinite).
-   * @defaultValue `0`
+   * Individual methods can override this.
+   * @defaultValue `15000` (15 seconds)
    */
   deadlineMs?: number;
 }
@@ -210,16 +210,15 @@ export class BurpClient {
   constructor(options: BurpClientOptions = {}) {
     const host = options.host ?? "localhost";
     const port = options.port ?? 50051;
-    this.defaultDeadlineMs = options.deadlineMs ?? 0;
+    this.defaultDeadlineMs = options.deadlineMs ?? 15_000;
     this.grpcClient = new BurpConnectorService(
       `${host}:${port}`,
       grpc.credentials.createInsecure()
     );
   }
 
-  private callOpts(overrideMs?: number): { deadline?: Date } {
+  private callOpts(overrideMs?: number): { deadline: Date } {
     const ms = overrideMs ?? this.defaultDeadlineMs;
-    if (ms <= 0) return {};
     return { deadline: new Date(Date.now() + ms) };
   }
 
@@ -227,7 +226,7 @@ export class BurpClient {
    * Ping the Burp RPC extension over gRPC.
    * Returns version info from Burp if reachable; throws on connection failure.
    *
-   * @param timeoutMs - Deadline in ms. Defaults to 5 000 ms.
+   * @param timeoutMs - Deadline in ms. Defaults to 500 ms.
    *
    * @example
    * ```ts
@@ -235,7 +234,7 @@ export class BurpClient {
    * console.log(`Burp ${info.burpVersion}, extension ${info.extensionVersion}`);
    * ```
    */
-  ping(timeoutMs = 5_000): Promise<PingResponse> {
+  ping(timeoutMs = 500): Promise<PingResponse> {
     return new Promise((resolve, reject) => {
       this.grpcClient.ping(
         {},
