@@ -4,6 +4,7 @@ import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.ByteArray;
 import burp.api.montoya.collaborator.CollaboratorClient;
 import burp.api.montoya.collaborator.Interaction;
+import burp.api.montoya.collaborator.SecretKey;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
 import burp.api.montoya.logging.Logging;
@@ -255,14 +256,15 @@ public class BurpConnectorServiceImpl extends BurpConnectorGrpc.BurpConnectorImp
                                             StreamObserver<GenerateCollaboratorPayloadResponse> responseObserver) {
         try {
             CollaboratorClient client = api.collaborator().createClient();
-            String payload = request.getCustomData() != null && !request.getCustomData().isEmpty()
-                    ? client.generatePayload().toString()
+            String customData = request.getCustomData();
+            String payload = (customData != null && !customData.isEmpty())
+                    ? client.generatePayload(customData).toString()
                     : client.generatePayload().toString();
 
             String secretKey = client.getSecretKey().toString();
             collaboratorClients.put(secretKey, client);
 
-            String server = client.getServerAddress().toString();
+            String server = client.server().address();
 
             log.logToOutput(String.format("[GenerateCollaboratorPayload] Generated payload: %s (server: %s)", payload, server));
 
@@ -287,8 +289,7 @@ public class BurpConnectorServiceImpl extends BurpConnectorGrpc.BurpConnectorImp
             CollaboratorClient client = collaboratorClients.get(secretKey);
 
             if (client == null) {
-                client = api.collaborator().restoreClient(burp.api.montoya.core.ByteArray.byteArray(
-                        Base64.getDecoder().decode(secretKey)));
+                client = api.collaborator().restoreClient(SecretKey.secretKey(secretKey));
                 collaboratorClients.put(secretKey, client);
             }
 
