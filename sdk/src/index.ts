@@ -49,4 +49,6 @@ export type {
   SetProxyInterceptResponse,
   GetSiteMapRequest,
   GetSiteMapResponse,
+  PingRequest,
+  PingResponse,
 } from "./types";

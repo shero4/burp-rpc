@@ -200,9 +200,21 @@ message SetProxyInterceptRequest {
 
 message SetProxyInterceptResponse {}
 
+// ─── Ping / health check ─────────────────────────────────────────────
+
+message PingRequest {}
+
+message PingResponse {
+  string burp_version = 1;     // Burp Suite version string (e.g. "2024.10.1")
+  string extension_version = 2; // burp-rpc extension version
+}
+
 // ─── BurpConnector gRPC service ──────────────────────────────────────
 
 service BurpConnector {
+  // Health check
+  rpc Ping(PingRequest) returns (PingResponse);
+
   // Existing
   rpc GetProxyHistory(GetProxyHistoryRequest) returns (GetProxyHistoryResponse);
   rpc SendHttpRequest(SendHttpRequestRequest) returns (SendHttpRequestResponse);

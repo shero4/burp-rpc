@@ -144,6 +144,27 @@ public class BurpConnectorServiceImpl extends BurpConnectorGrpc.BurpConnectorImp
         }
     }
 
+    private static final String EXTENSION_VERSION = "1.1.0";
+
+    @Override
+    public void ping(PingRequest request,
+                     StreamObserver<PingResponse> responseObserver) {
+        try {
+            String burpVersion = api.burpSuite().version().toString();
+            log.logToOutput(String.format("[Ping] Burp %s, extension %s", burpVersion, EXTENSION_VERSION));
+
+            responseObserver.onNext(PingResponse.newBuilder()
+                    .setBurpVersion(burpVersion)
+                    .setExtensionVersion(EXTENSION_VERSION)
+                    .build());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            log.logToError("[Ping] Error: " + e.getMessage());
+            log.logToError(stackTraceToString(e));
+            responseObserver.onError(e);
+        }
+    }
+
     // ─── New RPCs ─────────────────────────────────────────────────────
 
     private static final java.util.regex.Pattern ASSET_EXT_PATTERN =

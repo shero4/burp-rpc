@@ -255,3 +255,16 @@ export interface SetProxyInterceptRequest {
 }
 
 export interface SetProxyInterceptResponse {}
+
+// ---------------------------------------------------------------------------
+// Ping / health check
+// ---------------------------------------------------------------------------
+
+export interface PingRequest {}
+
+export interface PingResponse {
+  /** Burp Suite version string (e.g. "2024.10.1"). */
+  burpVersion: string;
+  /** burp-rpc extension version. */
+  extensionVersion: string;
+}

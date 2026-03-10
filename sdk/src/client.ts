@@ -21,6 +21,7 @@ import type {
   PollCollaboratorResponse,
   GetProxyInterceptStatusResponse,
   SetProxyInterceptResponse,
+  PingResponse,
 } from "./types";
 
 const PROTO_PATH = path.resolve(__dirname, "..", "proto", "montoya_bridge.proto");
@@ -205,6 +206,50 @@ export class BurpClient {
       `${host}:${port}`,
       grpc.credentials.createInsecure()
     );
+  }
+
+  /**
+   * Ping the Burp RPC extension over gRPC.
+   * Returns version info from Burp if reachable; throws on connection failure.
+   *
+   * @example
+   * ```ts
+   * const info = await burp.ping();
+   * console.log(`Burp ${info.burpVersion}, extension ${info.extensionVersion}`);
+   * ```
+   */
+  ping(): Promise<PingResponse> {
+    return new Promise((resolve, reject) => {
+      this.grpcClient.ping(
+        {},
+        (err: grpc.ServiceError | null, res: PingResponse) => {
+          if (err) return reject(err);
+          resolve(res);
+        }
+      );
+    });
+  }
+
+  /**
+   * Convenience wrapper: returns `true` if Burp is reachable, `false` otherwise.
+   * Does not throw.
+   *
+   * @example
+   * ```ts
+   * const burp = new BurpClient({ host: "localhost", port: 50051 });
+   * if (await burp.checkConnection()) {
+   *   console.log("Burp is alive");
+   * }
+   * burp.close();
+   * ```
+   */
+  async checkConnection(): Promise<boolean> {
+    try {
+      await this.ping();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** Proxy HTTP history and intercept control. */
