@@ -178,6 +178,13 @@ export interface BurpClientOptions {
    * @defaultValue `50051`
    */
   port?: number;
+
+  /**
+   * Default deadline for all gRPC calls, in milliseconds.
+   * Individual methods can override this. `0` means no deadline (infinite).
+   * @defaultValue `0`
+   */
+  deadlineMs?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -198,19 +205,29 @@ export interface BurpClientOptions {
  */
 export class BurpClient {
   private grpcClient: InstanceType<typeof BurpConnectorService>;
+  private defaultDeadlineMs: number;
 
   constructor(options: BurpClientOptions = {}) {
     const host = options.host ?? "localhost";
     const port = options.port ?? 50051;
+    this.defaultDeadlineMs = options.deadlineMs ?? 0;
     this.grpcClient = new BurpConnectorService(
       `${host}:${port}`,
       grpc.credentials.createInsecure()
     );
   }
 
+  private callOpts(overrideMs?: number): { deadline?: Date } {
+    const ms = overrideMs ?? this.defaultDeadlineMs;
+    if (ms <= 0) return {};
+    return { deadline: new Date(Date.now() + ms) };
+  }
+
   /**
    * Ping the Burp RPC extension over gRPC.
    * Returns version info from Burp if reachable; throws on connection failure.
+   *
+   * @param timeoutMs - Deadline in ms. Defaults to 5 000 ms.
    *
    * @example
    * ```ts
@@ -218,10 +235,11 @@ export class BurpClient {
    * console.log(`Burp ${info.burpVersion}, extension ${info.extensionVersion}`);
    * ```
    */
-  ping(): Promise<PingResponse> {
+  ping(timeoutMs = 5_000): Promise<PingResponse> {
     return new Promise((resolve, reject) => {
       this.grpcClient.ping(
         {},
+        this.callOpts(timeoutMs),
         (err: grpc.ServiceError | null, res: PingResponse) => {
           if (err) return reject(err);
           resolve(res);
@@ -258,6 +276,7 @@ export class BurpClient {
       return new Promise((resolve, reject) => {
         this.grpcClient.getProxyHistory(
           {},
+          this.callOpts(),
           (err: grpc.ServiceError | null, res: GetProxyHistoryResponse) => {
             if (err) return reject(err);
             resolve(res.entries ?? []);
@@ -283,6 +302,7 @@ export class BurpClient {
       return new Promise((resolve, reject) => {
         this.grpcClient.getProxyHistorySummary(
           req,
+          this.callOpts(),
           (err: grpc.ServiceError | null, res: GetProxyHistorySummaryResponse) => {
             if (err) return reject(err);
             resolve(res.entries ?? []);
@@ -295,6 +315,7 @@ export class BurpClient {
       return new Promise((resolve, reject) => {
         this.grpcClient.getProxyEntry(
           { id },
+          this.callOpts(),
           (err: grpc.ServiceError | null, res: GetProxyEntryResponse) => {
             if (err) return reject(err);
             if (!res.entry) return reject(new Error(`Entry ${id} not found`));
@@ -308,6 +329,7 @@ export class BurpClient {
       return new Promise((resolve, reject) => {
         this.grpcClient.getProxyInterceptStatus(
           {},
+          this.callOpts(),
           (err: grpc.ServiceError | null, res: GetProxyInterceptStatusResponse) => {
             if (err) return reject(err);
             resolve(res.enabled);
@@ -320,6 +342,7 @@ export class BurpClient {
       return new Promise((resolve, reject) => {
         this.grpcClient.setProxyIntercept(
           { enabled },
+          this.callOpts(),
           (err: grpc.ServiceError | null, _res: SetProxyInterceptResponse) => {
             if (err) return reject(err);
             resolve();
@@ -344,6 +367,7 @@ export class BurpClient {
       return new Promise((resolve, reject) => {
         this.grpcClient.sendHttpRequest(
           { request },
+          this.callOpts(),
           (err: grpc.ServiceError | null, res: SendHttpRequestResponse) => {
             if (err) return reject(err);
             resolve(res);
@@ -369,6 +393,7 @@ export class BurpClient {
       return new Promise((resolve, reject) => {
         this.grpcClient.getSiteMap(
           {},
+          this.callOpts(),
           (err: grpc.ServiceError | null, res: GetSiteMapResponse) => {
             if (err) return reject(err);
             resolve(res.entries ?? []);
@@ -387,6 +412,7 @@ export class BurpClient {
       return new Promise((resolve, reject) => {
         this.grpcClient.sendToRepeater(
           { request, tabName: tabName ?? "" },
+          this.callOpts(),
           (err: grpc.ServiceError | null, _res: SendToRepeaterResponse) => {
             if (err) return reject(err);
             resolve();
@@ -420,6 +446,7 @@ export class BurpClient {
       return new Promise((resolve, reject) => {
         this.grpcClient.sendAndReceiveRepeater(
           { request },
+          this.callOpts(),
           (err: grpc.ServiceError | null, res: SendAndReceiveRepeaterResponse) => {
             if (err) return reject(err);
             resolve(res);
@@ -450,6 +477,7 @@ export class BurpClient {
             tabName: tabName ?? "",
             insertionPoints: insertionPoints ?? [],
           },
+          this.callOpts(),
           (err: grpc.ServiceError | null, _res: SendToIntruderResponse) => {
             if (err) return reject(err);
             resolve();
@@ -465,6 +493,7 @@ export class BurpClient {
       return new Promise((resolve, reject) => {
         this.grpcClient.generateCollaboratorPayload(
           { customData: customData ?? "" },
+          this.callOpts(),
           (err: grpc.ServiceError | null, res: GenerateCollaboratorPayloadResponse) => {
             if (err) return reject(err);
             resolve(res);
@@ -477,6 +506,7 @@ export class BurpClient {
       return new Promise((resolve, reject) => {
         this.grpcClient.pollCollaborator(
           { secretKey },
+          this.callOpts(),
           (err: grpc.ServiceError | null, res: PollCollaboratorResponse) => {
             if (err) return reject(err);
             resolve(res.interactions ?? []);
