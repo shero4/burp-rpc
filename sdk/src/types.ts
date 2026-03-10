@@ -146,7 +146,21 @@ export interface ProxyHistorySummaryEntry {
   timeIso: string;
 }
 
-export interface GetProxyHistorySummaryRequest {}
+export interface ProxyHistoryFilter {
+  search?: string;
+  methods?: string[];
+  statusMin?: number;
+  statusMax?: number;
+  hideAssets?: boolean;
+}
+
+export interface GetProxyHistorySummaryRequest {
+  search?: string;
+  methods?: string[];
+  statusMin?: number;
+  statusMax?: number;
+  hideAssets?: boolean;
+}
 
 export interface GetProxyHistorySummaryResponse {
   entries: ProxyHistorySummaryEntry[];

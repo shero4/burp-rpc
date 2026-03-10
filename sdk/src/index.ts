@@ -21,6 +21,7 @@ export type {
   HttpResponseMessage,
   ProxyHistoryEntry,
   ProxyHistorySummaryEntry,
+  ProxyHistoryFilter,
   SiteMapEntry,
   IntruderInsertionPoint,
   CollaboratorInteraction,

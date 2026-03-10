@@ -5,6 +5,7 @@ import type {
   HttpRequestMessage,
   ProxyHistoryEntry,
   ProxyHistorySummaryEntry,
+  ProxyHistoryFilter,
   SiteMapEntry,
   IntruderInsertionPoint,
   CollaboratorInteraction,
@@ -45,7 +46,7 @@ const BurpConnectorService = protoDescriptor.burp.montoya.bridge.BurpConnector;
 export interface BurpProxy {
   getHistory(): Promise<ProxyHistoryEntry[]>;
   getLastN(n: number): Promise<ProxyHistoryEntry[]>;
-  getHistorySummary(): Promise<ProxyHistorySummaryEntry[]>;
+  getHistorySummary(filter?: ProxyHistoryFilter): Promise<ProxyHistorySummaryEntry[]>;
   getEntry(id: number): Promise<ProxyHistoryEntry>;
   isInterceptEnabled(): Promise<boolean>;
   setIntercept(enabled: boolean): Promise<void>;
@@ -225,10 +226,18 @@ export class BurpClient {
       return entries.slice(-n);
     },
 
-    getHistorySummary: (): Promise<ProxyHistorySummaryEntry[]> => {
+    getHistorySummary: (filter?: ProxyHistoryFilter): Promise<ProxyHistorySummaryEntry[]> => {
+      const req: any = {};
+      if (filter) {
+        if (filter.search) req.search = filter.search;
+        if (filter.methods?.length) req.methods = filter.methods;
+        if (filter.statusMin) req.statusMin = filter.statusMin;
+        if (filter.statusMax) req.statusMax = filter.statusMax;
+        if (filter.hideAssets) req.hideAssets = filter.hideAssets;
+      }
       return new Promise((resolve, reject) => {
         this.grpcClient.getProxyHistorySummary(
-          {},
+          req,
           (err: grpc.ServiceError | null, res: GetProxyHistorySummaryResponse) => {
             if (err) return reject(err);
             resolve(res.entries ?? []);

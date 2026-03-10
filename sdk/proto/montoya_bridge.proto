@@ -108,7 +108,13 @@ message ProxyHistorySummaryEntry {
   string time_iso = 11;
 }
 
-message GetProxyHistorySummaryRequest {}
+message GetProxyHistorySummaryRequest {
+  string search = 1;           // case-insensitive substring match on host, path, content_type
+  repeated string methods = 2; // e.g. ["GET","POST"] -- empty means all
+  int32 status_min = 3;        // 0 = no lower bound
+  int32 status_max = 4;        // 0 = no upper bound
+  bool hide_assets = 5;        // exclude static asset extensions and image/font content types
+}
 
 message GetProxyHistorySummaryResponse {
   repeated ProxyHistorySummaryEntry entries = 1;

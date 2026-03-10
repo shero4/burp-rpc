@@ -146,19 +146,55 @@ public class BurpConnectorServiceImpl extends BurpConnectorGrpc.BurpConnectorImp
 
     // ─── New RPCs ─────────────────────────────────────────────────────
 
+    private static final java.util.regex.Pattern ASSET_EXT_PATTERN =
+            java.util.regex.Pattern.compile("\\.(js|css|png|jpg|jpeg|gif|svg|woff2?|ttf|eot|ico|map)(\\?|$)", java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final java.util.regex.Pattern ASSET_TYPE_PATTERN =
+            java.util.regex.Pattern.compile("^(image|font)/", java.util.regex.Pattern.CASE_INSENSITIVE);
+
     @Override
     public void getProxyHistorySummary(GetProxyHistorySummaryRequest request,
                                        StreamObserver<GetProxyHistorySummaryResponse> responseObserver) {
         try {
             List<ProxyHttpRequestResponse> history = api.proxy().history();
-            log.logToOutput(String.format("[GetProxyHistorySummary] Returning %d lightweight entries", history.size()));
+
+            String search = request.getSearch().toLowerCase();
+            List<String> methods = request.getMethodsList().stream()
+                    .map(String::toUpperCase).collect(java.util.stream.Collectors.toList());
+            int statusMin = request.getStatusMin();
+            int statusMax = request.getStatusMax();
+            boolean hideAssets = request.getHideAssets();
 
             GetProxyHistorySummaryResponse.Builder responseBuilder = GetProxyHistorySummaryResponse.newBuilder();
+            int added = 0;
+
             for (int i = 0; i < history.size(); i++) {
                 ProxyHistorySummaryEntry entry = Serialization.toProxyHistorySummaryEntry(history.get(i));
-                responseBuilder.addEntries(entry.toBuilder().setId(i).build());
+                entry = entry.toBuilder().setId(i).build();
+
+                if (!search.isEmpty()) {
+                    boolean matches = entry.getHost().toLowerCase().contains(search)
+                            || entry.getPath().toLowerCase().contains(search)
+                            || entry.getContentType().toLowerCase().contains(search);
+                    if (!matches) continue;
+                }
+
+                if (!methods.isEmpty() && !methods.contains(entry.getMethod().toUpperCase())) {
+                    continue;
+                }
+
+                if (statusMin > 0 && entry.getStatusCode() < statusMin) continue;
+                if (statusMax > 0 && entry.getStatusCode() > statusMax) continue;
+
+                if (hideAssets) {
+                    if (ASSET_EXT_PATTERN.matcher(entry.getPath()).find()) continue;
+                    if (ASSET_TYPE_PATTERN.matcher(entry.getContentType()).find()) continue;
+                }
+
+                responseBuilder.addEntries(entry);
+                added++;
             }
 
+            log.logToOutput(String.format("[GetProxyHistorySummary] %d/%d entries after filtering", added, history.size()));
             responseObserver.onNext(responseBuilder.build());
             responseObserver.onCompleted();
         } catch (Exception e) {
