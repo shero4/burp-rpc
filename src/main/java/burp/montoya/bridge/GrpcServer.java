@@ -25,6 +25,7 @@ public class GrpcServer {
 
     public void start() throws IOException {
         server = NettyServerBuilder.forAddress(new InetSocketAddress("0.0.0.0", port))
+                .maxInboundMessageSize(64 * 1024 * 1024)
                 .withChildOption(ChannelOption.SO_REUSEADDR, true)
                 .intercept(new LoggingInterceptor(api.logging()))
                 .addService(new BurpConnectorServiceImpl(api))

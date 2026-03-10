@@ -127,3 +127,117 @@ export interface SendToRepeaterRequest {
 
 /** Response payload for {@link BurpRepeater.sendToRepeater}. Empty on success. */
 export interface SendToRepeaterResponse {}
+
+// ---------------------------------------------------------------------------
+// Lightweight proxy history summary
+// ---------------------------------------------------------------------------
+
+export interface ProxyHistorySummaryEntry {
+  id: number;
+  host: string;
+  port: number;
+  secure: boolean;
+  method: string;
+  path: string;
+  statusCode: number;
+  contentType: string;
+  requestLength: number;
+  responseLength: number;
+  timeIso: string;
+}
+
+export interface GetProxyHistorySummaryRequest {}
+
+export interface GetProxyHistorySummaryResponse {
+  entries: ProxyHistorySummaryEntry[];
+}
+
+// ---------------------------------------------------------------------------
+// Single proxy entry by ID
+// ---------------------------------------------------------------------------
+
+export interface GetProxyEntryRequest {
+  id: number;
+}
+
+export interface GetProxyEntryResponse {
+  entry: ProxyHistoryEntry | undefined;
+}
+
+// ---------------------------------------------------------------------------
+// Intruder
+// ---------------------------------------------------------------------------
+
+export interface IntruderInsertionPoint {
+  startOffset: number;
+  endOffset: number;
+}
+
+export interface SendToIntruderRequest {
+  request: HttpRequestMessage | undefined;
+  tabName: string;
+  insertionPoints: IntruderInsertionPoint[];
+}
+
+export interface SendToIntruderResponse {}
+
+// ---------------------------------------------------------------------------
+// Repeater send-and-receive
+// ---------------------------------------------------------------------------
+
+export interface SendAndReceiveRepeaterRequest {
+  request: HttpRequestMessage | undefined;
+}
+
+export interface SendAndReceiveRepeaterResponse {
+  request: HttpRequestMessage | undefined;
+  response: HttpResponseMessage | undefined;
+  hasResponse: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Collaborator
+// ---------------------------------------------------------------------------
+
+export interface GenerateCollaboratorPayloadRequest {
+  customData: string;
+}
+
+export interface GenerateCollaboratorPayloadResponse {
+  payload: string;
+  server: string;
+  secretKey: string;
+}
+
+export interface CollaboratorInteraction {
+  id: string;
+  type: string;
+  timestamp: string;
+  clientIp: string;
+  clientPort: number;
+  customData: string;
+}
+
+export interface PollCollaboratorRequest {
+  secretKey: string;
+}
+
+export interface PollCollaboratorResponse {
+  interactions: CollaboratorInteraction[];
+}
+
+// ---------------------------------------------------------------------------
+// Proxy intercept control
+// ---------------------------------------------------------------------------
+
+export interface GetProxyInterceptStatusRequest {}
+
+export interface GetProxyInterceptStatusResponse {
+  enabled: boolean;
+}
+
+export interface SetProxyInterceptRequest {
+  enabled: boolean;
+}
+
+export interface SetProxyInterceptResponse {}

@@ -2,6 +2,8 @@ package burp.montoya.bridge;
 
 import burp.api.montoya.MontoyaApi;
 import burp.api.montoya.core.ByteArray;
+import burp.api.montoya.collaborator.CollaboratorClient;
+import burp.api.montoya.collaborator.Interaction;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
 import burp.api.montoya.logging.Logging;
@@ -14,6 +16,8 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * gRPC service implementation - bridges Montoya API to protobuf RPCs.
@@ -23,6 +27,7 @@ public class BurpConnectorServiceImpl extends BurpConnectorGrpc.BurpConnectorImp
 
     private final MontoyaApi api;
     private final Logging log;
+    private final Map<String, CollaboratorClient> collaboratorClients = new ConcurrentHashMap<>();
 
     public BurpConnectorServiceImpl(MontoyaApi api) {
         this.api = api;
@@ -133,6 +138,211 @@ public class BurpConnectorServiceImpl extends BurpConnectorGrpc.BurpConnectorImp
             responseObserver.onCompleted();
         } catch (Exception e) {
             log.logToError("[SendToRepeater] Error: " + e.getMessage());
+            log.logToError(stackTraceToString(e));
+            responseObserver.onError(e);
+        }
+    }
+
+    // ─── New RPCs ─────────────────────────────────────────────────────
+
+    @Override
+    public void getProxyHistorySummary(GetProxyHistorySummaryRequest request,
+                                       StreamObserver<GetProxyHistorySummaryResponse> responseObserver) {
+        try {
+            List<ProxyHttpRequestResponse> history = api.proxy().history();
+            log.logToOutput(String.format("[GetProxyHistorySummary] Returning %d lightweight entries", history.size()));
+
+            GetProxyHistorySummaryResponse.Builder responseBuilder = GetProxyHistorySummaryResponse.newBuilder();
+            for (int i = 0; i < history.size(); i++) {
+                ProxyHistorySummaryEntry entry = Serialization.toProxyHistorySummaryEntry(history.get(i));
+                responseBuilder.addEntries(entry.toBuilder().setId(i).build());
+            }
+
+            responseObserver.onNext(responseBuilder.build());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            log.logToError("[GetProxyHistorySummary] Error: " + e.getMessage());
+            log.logToError(stackTraceToString(e));
+            responseObserver.onError(e);
+        }
+    }
+
+    @Override
+    public void getProxyEntry(GetProxyEntryRequest request,
+                              StreamObserver<GetProxyEntryResponse> responseObserver) {
+        try {
+            int id = request.getId();
+            List<ProxyHttpRequestResponse> history = api.proxy().history();
+
+            if (id < 0 || id >= history.size()) {
+                responseObserver.onError(
+                        io.grpc.Status.NOT_FOUND.withDescription("Proxy entry " + id + " not found").asException());
+                return;
+            }
+
+            ProxyHttpRequestResponse entry = history.get(id);
+            ProxyHistoryEntry protoEntry = Serialization.toProxyHistoryEntry(entry).toBuilder().setId(id).build();
+
+            log.logToOutput(String.format("[GetProxyEntry] Returning entry %d", id));
+            responseObserver.onNext(GetProxyEntryResponse.newBuilder().setEntry(protoEntry).build());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            log.logToError("[GetProxyEntry] Error: " + e.getMessage());
+            log.logToError(stackTraceToString(e));
+            responseObserver.onError(e);
+        }
+    }
+
+    @Override
+    public void sendToIntruder(SendToIntruderRequest request,
+                               StreamObserver<SendToIntruderResponse> responseObserver) {
+        try {
+            HttpRequest httpRequest = Serialization.toHttpRequest(api, request.getRequest());
+            String tabName = request.getTabName();
+            String target = request.getRequest().getHttpService().getHost();
+
+            if (tabName != null && !tabName.isEmpty()) {
+                api.intruder().sendToIntruder(httpRequest, tabName);
+                log.logToOutput(String.format("[SendToIntruder] Sent to Intruder tab \"%s\" — %s", tabName, target));
+            } else {
+                api.intruder().sendToIntruder(httpRequest);
+                log.logToOutput(String.format("[SendToIntruder] Sent to Intruder — %s", target));
+            }
+
+            responseObserver.onNext(SendToIntruderResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            log.logToError("[SendToIntruder] Error: " + e.getMessage());
+            log.logToError(stackTraceToString(e));
+            responseObserver.onError(e);
+        }
+    }
+
+    @Override
+    public void sendAndReceiveRepeater(SendAndReceiveRepeaterRequest request,
+                                       StreamObserver<SendAndReceiveRepeaterResponse> responseObserver) {
+        try {
+            HttpRequest httpRequest = Serialization.toHttpRequest(api, request.getRequest());
+            String target = request.getRequest().getHttpService().getHost() + ":"
+                    + request.getRequest().getHttpService().getPort();
+
+            api.repeater().sendToRepeater(httpRequest, "RPC-" + System.currentTimeMillis());
+
+            var httpRequestResponse = api.http().sendRequest(httpRequest);
+
+            SendAndReceiveRepeaterResponse.Builder responseBuilder = SendAndReceiveRepeaterResponse.newBuilder();
+            responseBuilder.setRequest(Serialization.toProtoHttpRequest(httpRequestResponse.request()));
+            responseBuilder.setHasResponse(httpRequestResponse.hasResponse());
+            if (httpRequestResponse.hasResponse()) {
+                responseBuilder.setResponse(Serialization.toProtoHttpResponse(httpRequestResponse.response()));
+                log.logToOutput(String.format("[SendAndReceiveRepeater] Got response from %s (status %d)",
+                        target, httpRequestResponse.response().statusCode()));
+            } else {
+                log.logToOutput(String.format("[SendAndReceiveRepeater] No response from %s", target));
+            }
+
+            responseObserver.onNext(responseBuilder.build());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            log.logToError("[SendAndReceiveRepeater] Error: " + e.getMessage());
+            log.logToError(stackTraceToString(e));
+            responseObserver.onError(e);
+        }
+    }
+
+    @Override
+    public void generateCollaboratorPayload(GenerateCollaboratorPayloadRequest request,
+                                            StreamObserver<GenerateCollaboratorPayloadResponse> responseObserver) {
+        try {
+            CollaboratorClient client = api.collaborator().createClient();
+            String payload = request.getCustomData() != null && !request.getCustomData().isEmpty()
+                    ? client.generatePayload().toString()
+                    : client.generatePayload().toString();
+
+            String secretKey = client.getSecretKey().toString();
+            collaboratorClients.put(secretKey, client);
+
+            String server = client.getServerAddress().toString();
+
+            log.logToOutput(String.format("[GenerateCollaboratorPayload] Generated payload: %s (server: %s)", payload, server));
+
+            responseObserver.onNext(GenerateCollaboratorPayloadResponse.newBuilder()
+                    .setPayload(payload)
+                    .setServer(server)
+                    .setSecretKey(secretKey)
+                    .build());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            log.logToError("[GenerateCollaboratorPayload] Error: " + e.getMessage());
+            log.logToError(stackTraceToString(e));
+            responseObserver.onError(e);
+        }
+    }
+
+    @Override
+    public void pollCollaborator(PollCollaboratorRequest request,
+                                 StreamObserver<PollCollaboratorResponse> responseObserver) {
+        try {
+            String secretKey = request.getSecretKey();
+            CollaboratorClient client = collaboratorClients.get(secretKey);
+
+            if (client == null) {
+                client = api.collaborator().restoreClient(burp.api.montoya.core.ByteArray.byteArray(
+                        Base64.getDecoder().decode(secretKey)));
+                collaboratorClients.put(secretKey, client);
+            }
+
+            List<Interaction> interactions = client.getAllInteractions();
+            log.logToOutput(String.format("[PollCollaborator] Found %d interactions", interactions.size()));
+
+            PollCollaboratorResponse.Builder responseBuilder = PollCollaboratorResponse.newBuilder();
+            for (Interaction interaction : interactions) {
+                responseBuilder.addInteractions(Serialization.toProtoCollaboratorInteraction(interaction));
+            }
+
+            responseObserver.onNext(responseBuilder.build());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            log.logToError("[PollCollaborator] Error: " + e.getMessage());
+            log.logToError(stackTraceToString(e));
+            responseObserver.onError(e);
+        }
+    }
+
+    @Override
+    public void getProxyInterceptStatus(GetProxyInterceptStatusRequest request,
+                                        StreamObserver<GetProxyInterceptStatusResponse> responseObserver) {
+        try {
+            boolean enabled = api.proxy().isInterceptEnabled();
+            log.logToOutput(String.format("[GetProxyInterceptStatus] Intercept enabled: %b", enabled));
+
+            responseObserver.onNext(GetProxyInterceptStatusResponse.newBuilder()
+                    .setEnabled(enabled)
+                    .build());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            log.logToError("[GetProxyInterceptStatus] Error: " + e.getMessage());
+            log.logToError(stackTraceToString(e));
+            responseObserver.onError(e);
+        }
+    }
+
+    @Override
+    public void setProxyIntercept(SetProxyInterceptRequest request,
+                                  StreamObserver<SetProxyInterceptResponse> responseObserver) {
+        try {
+            if (request.getEnabled()) {
+                api.proxy().enableIntercept();
+                log.logToOutput("[SetProxyIntercept] Intercept ENABLED");
+            } else {
+                api.proxy().disableIntercept();
+                log.logToOutput("[SetProxyIntercept] Intercept DISABLED");
+            }
+
+            responseObserver.onNext(SetProxyInterceptResponse.getDefaultInstance());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            log.logToError("[SetProxyIntercept] Error: " + e.getMessage());
             log.logToError(stackTraceToString(e));
             responseObserver.onError(e);
         }

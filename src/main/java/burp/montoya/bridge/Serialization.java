@@ -7,6 +7,7 @@ import burp.api.montoya.http.HttpService;
 import burp.api.montoya.http.message.requests.HttpRequest;
 import burp.api.montoya.http.message.responses.HttpResponse;
 import burp.api.montoya.proxy.ProxyHttpRequestResponse;
+import burp.api.montoya.collaborator.Interaction;
 import burp.montoya.bridge.proto.*;
 
 import java.util.Base64;
@@ -70,6 +71,61 @@ public final class Serialization {
         if (entry.hasResponse()) {
             builder.setResponse(toProtoHttpResponse(entry.response()));
         }
+
+        return builder.build();
+    }
+
+    public static ProxyHistorySummaryEntry toProxyHistorySummaryEntry(ProxyHttpRequestResponse entry) {
+        ProxyHistorySummaryEntry.Builder builder = ProxyHistorySummaryEntry.newBuilder();
+
+        HttpRequest req = entry.finalRequest();
+        builder.setId(0); // will be set externally via list index if Montoya doesn't expose id
+        builder.setHost(req.httpService().host());
+        builder.setPort(req.httpService().port());
+        builder.setSecure(req.httpService().secure());
+
+        String rawRequest = new String(req.toByteArray().getBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        String firstLine = rawRequest.split("\r\n", 2)[0];
+        String[] parts = firstLine.split("\\s+", 3);
+        if (parts.length >= 1) builder.setMethod(parts[0]);
+        if (parts.length >= 2) builder.setPath(parts[1]);
+        builder.setRequestLength(req.toByteArray().length());
+
+        if (entry.hasResponse()) {
+            HttpResponse resp = entry.response();
+            builder.setStatusCode(resp.statusCode());
+            builder.setResponseLength(resp.toByteArray().length());
+
+            String rawResponse = new String(resp.toByteArray().getBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            String ctHeader = "";
+            for (String line : rawResponse.split("\r\n")) {
+                if (line.isEmpty()) break;
+                if (line.toLowerCase().startsWith("content-type:")) {
+                    ctHeader = line.substring("content-type:".length()).trim();
+                    int semi = ctHeader.indexOf(';');
+                    if (semi != -1) ctHeader = ctHeader.substring(0, semi).trim();
+                    break;
+                }
+            }
+            builder.setContentType(ctHeader);
+        }
+
+        if (entry.time() != null) {
+            builder.setTimeIso(entry.time().toString());
+        }
+
+        return builder.build();
+    }
+
+    public static CollaboratorInteraction toProtoCollaboratorInteraction(Interaction interaction) {
+        CollaboratorInteraction.Builder builder = CollaboratorInteraction.newBuilder()
+                .setId(interaction.id().toString())
+                .setType(interaction.type().name())
+                .setTimestamp(interaction.timeStamp().toString())
+                .setClientIp(interaction.clientIp().getHostAddress())
+                .setClientPort(interaction.clientPort());
+
+        interaction.customData().ifPresent(builder::setCustomData);
 
         return builder.build();
     }

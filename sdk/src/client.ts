@@ -4,11 +4,22 @@ import * as path from "path";
 import type {
   HttpRequestMessage,
   ProxyHistoryEntry,
+  ProxyHistorySummaryEntry,
   SiteMapEntry,
+  IntruderInsertionPoint,
+  CollaboratorInteraction,
   GetProxyHistoryResponse,
+  GetProxyHistorySummaryResponse,
+  GetProxyEntryResponse,
   SendHttpRequestResponse,
+  SendAndReceiveRepeaterResponse,
   GetSiteMapResponse,
   SendToRepeaterResponse,
+  SendToIntruderResponse,
+  GenerateCollaboratorPayloadResponse,
+  PollCollaboratorResponse,
+  GetProxyInterceptStatusResponse,
+  SetProxyInterceptResponse,
 } from "./types";
 
 const PROTO_PATH = path.resolve(__dirname, "..", "proto", "montoya_bridge.proto");
@@ -29,34 +40,15 @@ const BurpConnectorService = protoDescriptor.burp.montoya.bridge.BurpConnector;
 // ---------------------------------------------------------------------------
 
 /**
- * Methods for reading Burp's Proxy HTTP history.
+ * Methods for reading Burp's Proxy HTTP history and controlling interception.
  */
 export interface BurpProxy {
-  /**
-   * Fetch every entry from the Proxy HTTP history.
-   *
-   * @returns All proxy history entries, oldest first.
-   *
-   * @example
-   * ```ts
-   * const all = await burp.proxy.getHistory();
-   * console.log(`Total proxied requests: ${all.length}`);
-   * ```
-   */
   getHistory(): Promise<ProxyHistoryEntry[]>;
-
-  /**
-   * Fetch the last *n* entries from the Proxy HTTP history.
-   *
-   * @param n - Number of entries to return (from the end of the list).
-   * @returns The last *n* entries, oldest first.
-   *
-   * @example
-   * ```ts
-   * const recent = await burp.proxy.getLastN(10);
-   * ```
-   */
   getLastN(n: number): Promise<ProxyHistoryEntry[]>;
+  getHistorySummary(): Promise<ProxyHistorySummaryEntry[]>;
+  getEntry(id: number): Promise<ProxyHistoryEntry>;
+  isInterceptEnabled(): Promise<boolean>;
+  setIntercept(enabled: boolean): Promise<void>;
 }
 
 /**
@@ -115,38 +107,36 @@ export interface BurpHttp {
  * Methods for interacting with Burp's Repeater tool.
  */
 export interface BurpRepeater {
-  /**
-   * Open an HTTP request in a new Repeater tab in the Burp UI.
-   *
-   * The request is **not** sent automatically — the user must click
-   * "Send" inside Burp. Use {@link BurpHttp.sendRequest} to fire it
-   * programmatically.
-   *
-   * @param request - The HTTP request to open.
-   * @param tabName - Optional caption for the Repeater tab.
-   *
-   * @example
-   * ```ts
-   * await burp.repeater.sendToRepeater(entry.request!, "Login");
-   * ```
-   */
   sendToRepeater(request: HttpRequestMessage, tabName?: string): Promise<void>;
-
-  /**
-   * Convenience — extract the request from a {@link ProxyHistoryEntry}
-   * and open it in Repeater.
-   *
-   * @param entry   - A proxy history entry.
-   * @param tabName - Optional caption for the Repeater tab.
-   * @throws If the entry has no request attached.
-   *
-   * @example
-   * ```ts
-   * const recent = await burp.proxy.getLastN(1);
-   * await burp.repeater.sendFromHistory(recent[0], "Latest");
-   * ```
-   */
   sendFromHistory(entry: ProxyHistoryEntry, tabName?: string): Promise<void>;
+  sendAndReceive(
+    host: string,
+    port: number,
+    secure: boolean,
+    rawRequestBase64: string
+  ): Promise<SendAndReceiveRepeaterResponse>;
+}
+
+/**
+ * Methods for interacting with Burp's Intruder tool.
+ */
+export interface BurpIntruder {
+  sendToIntruder(
+    host: string,
+    port: number,
+    secure: boolean,
+    rawRequestBase64: string,
+    tabName?: string,
+    insertionPoints?: IntruderInsertionPoint[]
+  ): Promise<void>;
+}
+
+/**
+ * Methods for interacting with Burp Collaborator.
+ */
+export interface BurpCollaborator {
+  generatePayload(customData?: string): Promise<GenerateCollaboratorPayloadResponse>;
+  poll(secretKey: string): Promise<CollaboratorInteraction[]>;
 }
 
 /**
@@ -216,7 +206,7 @@ export class BurpClient {
     );
   }
 
-  /** Proxy HTTP history. */
+  /** Proxy HTTP history and intercept control. */
   readonly proxy: BurpProxy = {
     getHistory: (): Promise<ProxyHistoryEntry[]> => {
       return new Promise((resolve, reject) => {
@@ -233,6 +223,55 @@ export class BurpClient {
     getLastN: async (n: number): Promise<ProxyHistoryEntry[]> => {
       const entries = await this.proxy.getHistory();
       return entries.slice(-n);
+    },
+
+    getHistorySummary: (): Promise<ProxyHistorySummaryEntry[]> => {
+      return new Promise((resolve, reject) => {
+        this.grpcClient.getProxyHistorySummary(
+          {},
+          (err: grpc.ServiceError | null, res: GetProxyHistorySummaryResponse) => {
+            if (err) return reject(err);
+            resolve(res.entries ?? []);
+          }
+        );
+      });
+    },
+
+    getEntry: (id: number): Promise<ProxyHistoryEntry> => {
+      return new Promise((resolve, reject) => {
+        this.grpcClient.getProxyEntry(
+          { id },
+          (err: grpc.ServiceError | null, res: GetProxyEntryResponse) => {
+            if (err) return reject(err);
+            if (!res.entry) return reject(new Error(`Entry ${id} not found`));
+            resolve(res.entry);
+          }
+        );
+      });
+    },
+
+    isInterceptEnabled: (): Promise<boolean> => {
+      return new Promise((resolve, reject) => {
+        this.grpcClient.getProxyInterceptStatus(
+          {},
+          (err: grpc.ServiceError | null, res: GetProxyInterceptStatusResponse) => {
+            if (err) return reject(err);
+            resolve(res.enabled);
+          }
+        );
+      });
+    },
+
+    setIntercept: (enabled: boolean): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        this.grpcClient.setProxyIntercept(
+          { enabled },
+          (err: grpc.ServiceError | null, _res: SetProxyInterceptResponse) => {
+            if (err) return reject(err);
+            resolve();
+          }
+        );
+      });
     },
   };
 
@@ -312,6 +351,84 @@ export class BurpClient {
         );
       }
       return this.repeater.sendToRepeater(entry.request, tabName);
+    },
+
+    sendAndReceive: (
+      host: string,
+      port: number,
+      secure: boolean,
+      rawRequestBase64: string
+    ): Promise<SendAndReceiveRepeaterResponse> => {
+      const request: HttpRequestMessage = {
+        httpService: { host, port, secure },
+        rawBytesBase64: rawRequestBase64,
+      };
+      return new Promise((resolve, reject) => {
+        this.grpcClient.sendAndReceiveRepeater(
+          { request },
+          (err: grpc.ServiceError | null, res: SendAndReceiveRepeaterResponse) => {
+            if (err) return reject(err);
+            resolve(res);
+          }
+        );
+      });
+    },
+  };
+
+  /** Intruder. */
+  readonly intruder: BurpIntruder = {
+    sendToIntruder: (
+      host: string,
+      port: number,
+      secure: boolean,
+      rawRequestBase64: string,
+      tabName?: string,
+      insertionPoints?: IntruderInsertionPoint[]
+    ): Promise<void> => {
+      const request: HttpRequestMessage = {
+        httpService: { host, port, secure },
+        rawBytesBase64: rawRequestBase64,
+      };
+      return new Promise((resolve, reject) => {
+        this.grpcClient.sendToIntruder(
+          {
+            request,
+            tabName: tabName ?? "",
+            insertionPoints: insertionPoints ?? [],
+          },
+          (err: grpc.ServiceError | null, _res: SendToIntruderResponse) => {
+            if (err) return reject(err);
+            resolve();
+          }
+        );
+      });
+    },
+  };
+
+  /** Collaborator. */
+  readonly collaborator: BurpCollaborator = {
+    generatePayload: (customData?: string): Promise<GenerateCollaboratorPayloadResponse> => {
+      return new Promise((resolve, reject) => {
+        this.grpcClient.generateCollaboratorPayload(
+          { customData: customData ?? "" },
+          (err: grpc.ServiceError | null, res: GenerateCollaboratorPayloadResponse) => {
+            if (err) return reject(err);
+            resolve(res);
+          }
+        );
+      });
+    },
+
+    poll: (secretKey: string): Promise<CollaboratorInteraction[]> => {
+      return new Promise((resolve, reject) => {
+        this.grpcClient.pollCollaborator(
+          { secretKey },
+          (err: grpc.ServiceError | null, res: PollCollaboratorResponse) => {
+            if (err) return reject(err);
+            resolve(res.interactions ?? []);
+          }
+        );
+      });
     },
   };
 

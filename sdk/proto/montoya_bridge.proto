@@ -92,10 +92,132 @@ message SendToRepeaterResponse {
   // Empty - confirms the request was sent to Repeater
 }
 
-// BurpConnector gRPC service
+// ─── Lightweight proxy history (no raw bodies) ──────────────────────
+
+message ProxyHistorySummaryEntry {
+  int32 id = 1;
+  string host = 2;
+  int32 port = 3;
+  bool secure = 4;
+  string method = 5;
+  string path = 6;
+  int32 status_code = 7;
+  string content_type = 8;
+  int32 request_length = 9;
+  int32 response_length = 10;
+  string time_iso = 11;
+}
+
+message GetProxyHistorySummaryRequest {}
+
+message GetProxyHistorySummaryResponse {
+  repeated ProxyHistorySummaryEntry entries = 1;
+}
+
+// ─── Single proxy entry by ID (full raw data) ───────────────────────
+
+message GetProxyEntryRequest {
+  int32 id = 1;
+}
+
+message GetProxyEntryResponse {
+  ProxyHistoryEntry entry = 1;
+}
+
+// ─── Intruder ────────────────────────────────────────────────────────
+
+message IntruderInsertionPoint {
+  int32 start_offset = 1;
+  int32 end_offset = 2;
+}
+
+message SendToIntruderRequest {
+  HttpRequestMessage request = 1;
+  string tab_name = 2;
+  repeated IntruderInsertionPoint insertion_points = 3;
+}
+
+message SendToIntruderResponse {}
+
+// ─── Repeater send-and-receive ───────────────────────────────────────
+
+message SendAndReceiveRepeaterRequest {
+  HttpRequestMessage request = 1;
+}
+
+message SendAndReceiveRepeaterResponse {
+  HttpRequestMessage request = 1;
+  HttpResponseMessage response = 2;
+  bool has_response = 3;
+}
+
+// ─── Collaborator ────────────────────────────────────────────────────
+
+message GenerateCollaboratorPayloadRequest {
+  string custom_data = 1;  // Optional, max 16 alphanumeric chars
+}
+
+message GenerateCollaboratorPayloadResponse {
+  string payload = 1;      // Full collaborator subdomain
+  string server = 2;       // Collaborator server address
+  string secret_key = 3;   // Secret key to restore client later
+}
+
+message PollCollaboratorRequest {
+  string secret_key = 1;
+}
+
+message CollaboratorInteraction {
+  string id = 1;
+  string type = 2;         // DNS, HTTP, SMTP
+  string timestamp = 3;
+  string client_ip = 4;
+  int32 client_port = 5;
+  string custom_data = 6;
+}
+
+message PollCollaboratorResponse {
+  repeated CollaboratorInteraction interactions = 1;
+}
+
+// ─── Proxy intercept control ─────────────────────────────────────────
+
+message GetProxyInterceptStatusRequest {}
+
+message GetProxyInterceptStatusResponse {
+  bool enabled = 1;
+}
+
+message SetProxyInterceptRequest {
+  bool enabled = 1;
+}
+
+message SetProxyInterceptResponse {}
+
+// ─── BurpConnector gRPC service ──────────────────────────────────────
+
 service BurpConnector {
+  // Existing
   rpc GetProxyHistory(GetProxyHistoryRequest) returns (GetProxyHistoryResponse);
   rpc SendHttpRequest(SendHttpRequestRequest) returns (SendHttpRequestResponse);
   rpc GetSiteMap(GetSiteMapRequest) returns (GetSiteMapResponse);
   rpc SendToRepeater(SendToRepeaterRequest) returns (SendToRepeaterResponse);
+
+  // New - lightweight proxy
+  rpc GetProxyHistorySummary(GetProxyHistorySummaryRequest) returns (GetProxyHistorySummaryResponse);
+  rpc GetProxyEntry(GetProxyEntryRequest) returns (GetProxyEntryResponse);
+
+  // New - Intruder
+  rpc SendToIntruder(SendToIntruderRequest) returns (SendToIntruderResponse);
+
+  // New - Repeater send-and-receive
+  rpc SendAndReceiveRepeater(SendAndReceiveRepeaterRequest) returns (SendAndReceiveRepeaterResponse);
+
+  // New - Collaborator
+  rpc GenerateCollaboratorPayload(GenerateCollaboratorPayloadRequest) returns (GenerateCollaboratorPayloadResponse);
+  rpc PollCollaborator(PollCollaboratorRequest) returns (PollCollaboratorResponse);
+
+  // New - Proxy control
+  rpc GetProxyInterceptStatus(GetProxyInterceptStatusRequest) returns (GetProxyInterceptStatusResponse);
+  rpc SetProxyIntercept(SetProxyInterceptRequest) returns (SetProxyInterceptResponse);
 }
